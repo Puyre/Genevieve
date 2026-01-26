@@ -1,15 +1,39 @@
 package org.example.perception.visual.domain
 
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.example.perception.visual.data.RawImage
 import org.example.perception.visual.domain.entity.DetectorCluster
+import org.example.perception.visual.domain.entity.ImageEncoderConfig
+import java.io.File
 
 class ImageEncoder(
     private val maskRadius: Int,
     private val detectorActivationThreshold: Int
 ) {
 
-    init {
+    fun initialize(): ImageEncoderConfig {
         DetectorCluster.initialize(maskRadius = maskRadius, detectorActivationThreshold = detectorActivationThreshold)
+
+        val tempCluster = DetectorCluster(centerX = maskRadius, centerY = maskRadius)
+        val config = tempCluster.generateConfig()
+
+        saveConfigToFile(config)
+
+        return config
+    }
+
+    private fun saveConfigToFile(config: ImageEncoderConfig) {
+        val json = Json {
+            prettyPrint = true
+        }
+
+        val jsonString = json.encodeToString(config)
+
+        val configFile = File("image_encoder_config.json")
+        configFile.writeText(jsonString)
+
+        println("Config saved to: ${configFile.absolutePath}")
     }
 
     fun encode(image: RawImage): IntArray {

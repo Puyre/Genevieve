@@ -1,0 +1,14 @@
+{
+    "clusterCodeDimension": 8,
+    "maskRadius": 1,
+    "codeToEdgeType": {
+        "00000111": "HORIZONTAL",
+        "01110000": "HORIZONTAL",
+        "11000001": "VERTICAL",
+        "00011100": "VERTICAL",
+        "00001110": "DIAGONAL_45",
+        "11100000": "DIAGONAL_45",
+        "10000011": "DIAGONAL_135",
+        "00111000": "DIAGONAL_135"
+    }
+}
