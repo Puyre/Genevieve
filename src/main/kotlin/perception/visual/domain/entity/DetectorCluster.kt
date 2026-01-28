@@ -6,6 +6,7 @@ import org.example.perception.visual.data.RawImage
 class DetectorCluster(
     private val centerX: Int,
     private val centerY: Int,
+    private val stride: Int,
 ) {
 
     companion object {
@@ -97,7 +98,8 @@ class DetectorCluster(
         return ImageEncoderConfig(
             clusterCodeDimension = masks!!.size,
             maskRadius = maskRadius,
-            codeToEdgeType = codeToEdgeType
+            codeToEdgeType = codeToEdgeType,
+            stride = stride
         )
     }
 

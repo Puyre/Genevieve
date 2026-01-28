@@ -16,8 +16,8 @@ class EncodedImageVisualizer(
 ) {
 
     fun visualizeGraphically(encodedVector: IntArray, imageWidth: Int, imageHeight: Int) {
-        val gridWidth = imageWidth - 2 * encoderConfig.maskRadius
-        val gridHeight = imageHeight - 2 * encoderConfig.maskRadius
+        val gridWidth = (imageWidth - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
+        val gridHeight = (imageHeight - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
 
         val windowWidth = gridWidth * cellSize
         val windowHeight = gridHeight * cellSize

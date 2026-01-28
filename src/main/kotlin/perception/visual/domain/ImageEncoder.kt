@@ -9,13 +9,14 @@ import java.io.File
 
 class ImageEncoder(
     private val maskRadius: Int,
-    private val detectorActivationThreshold: Int
+    private val detectorActivationThreshold: Int,
+    private val stride: Int,
 ) {
 
     fun initialize(): ImageEncoderConfig {
         DetectorCluster.initialize(maskRadius = maskRadius, detectorActivationThreshold = detectorActivationThreshold)
 
-        val tempCluster = DetectorCluster(centerX = maskRadius, centerY = maskRadius)
+        val tempCluster = DetectorCluster(centerX = maskRadius, centerY = maskRadius, stride = stride)
         val config = tempCluster.generateConfig()
 
         saveConfigToFile(config)
@@ -39,9 +40,9 @@ class ImageEncoder(
     fun encode(image: RawImage): IntArray {
         val clusterCodes = mutableListOf<IntArray>()
 
-        for (y in maskRadius until image.height - maskRadius) {
-            for (x in maskRadius until image.width - maskRadius) {
-                val cluster = DetectorCluster(centerX = x, centerY = y)
+        for (y in maskRadius until image.height - maskRadius step stride) {
+            for (x in maskRadius until image.width - maskRadius step stride) {
+                val cluster = DetectorCluster(centerX = x, centerY = y, stride = stride)
                 val code = cluster.encode(image)
 
                 clusterCodes.add(code)

@@ -19,7 +19,7 @@ fun main() {
     )
 
     val image = RawImage(pixels)
-    val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 2)
+    val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 2, stride = 3)
     val config = encoder.initialize()
 
     val visualizer = EncodedImageVisualizer(encoderConfig = config)

@@ -6,5 +6,6 @@ import kotlinx.serialization.Serializable
 data class ImageEncoderConfig(
     val clusterCodeDimension: Int,
     val maskRadius: Int,
-    val codeToEdgeType: Map<String, EdgePrototype>
+    val codeToEdgeType: Map<String, EdgePrototype>,
+    val stride: Int,
 )
