@@ -62,11 +62,18 @@ enum class EdgePrototype(
             intArrayOf(1, 1, -1),
         ),
     ),
-    EMPTY(
+    EMPTY_BLACK(
         data = arrayOf(
             intArrayOf(-1, -1, -1),
             intArrayOf(-1, -1, -1),
             intArrayOf(-1, -1, -1),
+        )
+    ),
+    EMPTY_WHITE(
+        data = arrayOf(
+            intArrayOf(1, 1, 1),
+            intArrayOf(1, 1, 1),
+            intArrayOf(1, 1, 1),
         )
     )
 }

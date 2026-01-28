@@ -10,7 +10,7 @@
         "11100000": "DIAGONAL_DARK_TOP_LEFT",
         "10000011": "DIAGONAL_DARK_BOTTOM_LEFT",
         "00111000": "DIAGONAL_DARK_TOP_RIGHT",
-        "00000000": "EMPTY"
+        "00000000": "EMPTY_WHITE"
     },
     "stride": 3
 }

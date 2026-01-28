@@ -172,8 +172,13 @@ class EncodedImageVisualizer(
                 g.fillPolygon(poly2)
             }
 
-            EdgePrototype.EMPTY -> {
+            EdgePrototype.EMPTY_WHITE -> {
                 g.color = Color.WHITE
+                g.fillRect(x, y, cellSize, cellSize)
+            }
+
+            EdgePrototype.EMPTY_BLACK -> {
+                g.color = Color.BLACK
                 g.fillRect(x, y, cellSize, cellSize)
             }
 

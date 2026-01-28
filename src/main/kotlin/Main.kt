@@ -1,24 +1,13 @@
 package org.example
 
+import org.example.perception.visual.data.ImageLoader
 import org.example.perception.visual.data.RawImage
 import org.example.perception.visual.domain.EncodedImageVisualizer
 import org.example.perception.visual.domain.ImageEncoder
 
 fun main() {
-    // Изображение 9x9 с кругом в центре
-    val pixels = arrayOf(
-        intArrayOf(-1, -1, -1, +1, +1, +1, -1, -1, -1),
-        intArrayOf(-1, -1, +1, +1, +1, +1, +1, -1, -1),
-        intArrayOf(-1, +1, +1, +1, +1, +1, +1, +1, -1),
-        intArrayOf(+1, +1, +1, +1, +1, +1, +1, +1, +1),
-        intArrayOf(+1, +1, +1, +1, +1, +1, +1, +1, +1),
-        intArrayOf(+1, +1, +1, +1, +1, +1, +1, +1, +1),
-        intArrayOf(-1, +1, +1, +1, +1, +1, +1, +1, -1),
-        intArrayOf(-1, -1, +1, +1, +1, +1, +1, -1, -1),
-        intArrayOf(-1, -1, -1, +1, +1, +1, -1, -1, -1)
-    )
+    val image = ImageLoader.loadImageFromPng("src/main/resources/mnist/993.png")
 
-    val image = RawImage(pixels)
     val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 2, stride = 3)
     val config = encoder.initialize()
 
