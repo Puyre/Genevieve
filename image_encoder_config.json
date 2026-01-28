@@ -2,13 +2,14 @@
     "clusterCodeDimension": 8,
     "maskRadius": 1,
     "codeToEdgeType": {
-        "00000111": "HORIZONTAL",
-        "01110000": "HORIZONTAL",
-        "11000001": "VERTICAL",
-        "00011100": "VERTICAL",
-        "00001110": "DIAGONAL_45",
-        "11100000": "DIAGONAL_45",
-        "10000011": "DIAGONAL_135",
-        "00111000": "DIAGONAL_135"
+        "00000111": "HORIZONTAL_DARK_BOTTOM",
+        "01110000": "HORIZONTAL_DARK_TOP",
+        "11000001": "VERTICAL_DARK_LEFT",
+        "00011100": "VERTICAL_DARK_RIGHT",
+        "00001110": "DIAGONAL_DARK_BOTTOM_RIGHT",
+        "11100000": "DIAGONAL_DARK_TOP_LEFT",
+        "10000011": "DIAGONAL_DARK_BOTTOM_LEFT",
+        "00111000": "DIAGONAL_DARK_TOP_RIGHT",
+        "00000000": "EMPTY"
     }
 }

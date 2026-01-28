@@ -1,10 +1,7 @@
 package org.example.perception.visual.domain.entity
 
 import org.example.perception.visual.data.DetectorMask
-import org.example.perception.visual.domain.entity.EdgeType
-import org.example.perception.visual.domain.entity.ImageEncoderConfig
 import org.example.perception.visual.data.RawImage
-import kotlin.text.toInt
 
 class DetectorCluster(
     private val centerX: Int,
@@ -89,12 +86,12 @@ class DetectorCluster(
     fun generateConfig(): ImageEncoderConfig {
         requireNotNull(masks) { "Detector cluster must be initialized before use. Pleas call DetectorCluster.initialize()" }
 
-        val codeToEdgeType = mutableMapOf<String, EdgeType>()
+        val codeToEdgeType = mutableMapOf<String, EdgePrototype>()
 
         EdgePrototype.entries.forEach { prototype ->
             val code = encode(RawImage(pixels = prototype.data))
 
-            codeToEdgeType[code.joinToString("")] = prototype.type
+            codeToEdgeType[code.joinToString("")] = prototype
         }
 
         return ImageEncoderConfig(
