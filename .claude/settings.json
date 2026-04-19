@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./gradlew -q compileKotlin",
+            "timeout": 180,
+            "statusMessage": "Checking Kotlin compile…"
+          }
+        ]
+      }
+    ]
+  }
+}
