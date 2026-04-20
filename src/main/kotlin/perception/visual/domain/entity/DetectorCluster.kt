@@ -12,13 +12,13 @@ class DetectorCluster(
     companion object {
         private var masks: List<DetectorMask>? = null
         private var maskRadius: Int = 0
-        private var detectorActivationThreshold: Int = 0
+        private var detectorActivationThreshold: Double = 0.0
 
         // Вес центрального пикселя в масках направленных детекторов.
         // При чистом совпадении отклик = W + 3 (три пикселя стороны × 1 + центр × W).
         private const val CENTER_WEIGHT = 3
 
-        fun initialize(maskRadius: Int, detectorActivationThreshold: Int) {
+        fun initialize(maskRadius: Int, detectorActivationThreshold: Double) {
             this.maskRadius = maskRadius
             this.detectorActivationThreshold = detectorActivationThreshold
             this.masks = createMasks(maskRadius)
@@ -161,7 +161,12 @@ class DetectorCluster(
         val codeToEdgeType = mutableMapOf<String, EdgePrototype>()
 
         EdgePrototype.entries.forEach { prototype ->
-            val code = encode(RawImage(pixels = prototype.data))
+            // Прототипы хранятся как идеальные ±1 паттерны (IntArray);
+            // переводим в DoubleArray, чтобы прогнать через непрерывный конвейер детекторов.
+            val prototypePixels = Array(prototype.data.size) { y ->
+                DoubleArray(prototype.data[y].size) { x -> prototype.data[y][x].toDouble() }
+            }
+            val code = encode(RawImage(pixels = prototypePixels))
 
             codeToEdgeType[code.joinToString("")] = prototype
         }
@@ -188,7 +193,7 @@ class DetectorCluster(
             result[index] = if (detectorValue >= detectorActivationThreshold) 1 else 0
         }
 
-        result[maskCount] = if (image.getPixel(centerX, centerY) > 0) 1 else 0
+        result[maskCount] = if (image.getPixel(centerX, centerY) > 0.0) 1 else 0
 
         return result
     }

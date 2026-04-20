@@ -2,11 +2,11 @@ package org.example.perception.visual.data
 
 class DetectorMask(
     private val weights: Array<IntArray>,
-    private val maskRadius: Int
+    private val maskRadius: Int,
 ) {
 
-    fun apply(image: RawImage, centerX: Int, centerY: Int): Int {
-        var sum = 0
+    fun apply(image: RawImage, centerX: Int, centerY: Int): Double {
+        var sum = 0.0
 
         for (dy in -maskRadius..maskRadius) {
             for (dx in -maskRadius..maskRadius) {

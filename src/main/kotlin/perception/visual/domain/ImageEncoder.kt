@@ -9,7 +9,7 @@ import java.io.File
 
 class ImageEncoder(
     private val maskRadius: Int,
-    private val detectorActivationThreshold: Int,
+    private val detectorActivationThreshold: Double,
     private val stride: Int,
 ) {
 
