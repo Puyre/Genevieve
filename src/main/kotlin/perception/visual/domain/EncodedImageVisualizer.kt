@@ -17,6 +17,10 @@ class EncodedImageVisualizer(
     private val cellSize: Int = 20,
 ) {
 
+    private enum class Direction { N, NE, E, SE, S, SW, W, NW }
+
+    private enum class Corner { NE, SE, SW, NW }
+
     fun visualizeGraphically(encodedVector: IntArray, imageWidth: Int, imageHeight: Int) {
         val gridWidth = (imageWidth - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
         val gridHeight = (imageHeight - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
@@ -56,16 +60,12 @@ class EncodedImageVisualizer(
     }
 
     // Принцип отрисовки:
-    //  • dark-center прототип    → чёрный фон + светлая полоса/треугольник со стороны яркой области;
-    //  • bright-center прототип  → белый фон + тёмная полоса/треугольник со стороны тёмной области;
+    //  • dark-center прототип   → чёрный фон + светлые маркеры со стороны ярких областей;
+    //  • bright-center прототип → белый фон + тёмные маркеры со стороны тёмных областей;
+    //  • STEP_*                  → два маркера на двух соседних сторонах (удвоенное угловое разрешение);
     //  • линия                    → чёрный фон + яркая толстая линия через центр;
     //  • пустой тёмный/яркий      → сплошной цвет;
     //  • неизвестный код          → серый квадрат.
-    //
-    // Таким образом на 2-пиксельном белом штрихе мы видим последовательность:
-    // чёрная клетка → клетка с тонкой светлой полосой снизу → белая клетка с тонкой тёмной полосой сверху
-    // → белая клетка с тонкой тёмной полосой снизу → клетка с тонкой светлой полосой сверху → чёрная.
-    // Это и есть «прямоугольник с верхней и нижней границей».
     private fun drawCell(g: Graphics2D, x: Int, y: Int, edgeType: EdgePrototype?) {
         if (edgeType == null) {
             g.color = Color.GRAY
@@ -95,42 +95,80 @@ class EncodedImageVisualizer(
         val stripe = maxOf(2, cellSize / 5)
 
         g.color = fgColor
+
         when (edgeType) {
-            // Dark-center: светлая полоса указывает сторону, где яркая область.
-            EdgePrototype.HORIZONTAL_DARK_TOP -> g.fillRect(x, y + cellSize - stripe, cellSize, stripe)
-            EdgePrototype.HORIZONTAL_DARK_BOTTOM -> g.fillRect(x, y, cellSize, stripe)
-            EdgePrototype.VERTICAL_DARK_LEFT -> g.fillRect(x + cellSize - stripe, y, stripe, cellSize)
-            EdgePrototype.VERTICAL_DARK_RIGHT -> g.fillRect(x, y, stripe, cellSize)
-            EdgePrototype.DIAGONAL_DARK_TOP_LEFT -> fillCornerTriangle(g, x, y, Corner.SE)
-            EdgePrototype.DIAGONAL_DARK_TOP_RIGHT -> fillCornerTriangle(g, x, y, Corner.SW)
-            EdgePrototype.DIAGONAL_DARK_BOTTOM_LEFT -> fillCornerTriangle(g, x, y, Corner.NE)
-            EdgePrototype.DIAGONAL_DARK_BOTTOM_RIGHT -> fillCornerTriangle(g, x, y, Corner.NW)
-
-            // Bright-center: тёмная полоса указывает сторону, где тёмная область.
-            EdgePrototype.HORIZONTAL_BRIGHT_BOTTOM -> g.fillRect(x, y, cellSize, stripe)
-            EdgePrototype.HORIZONTAL_BRIGHT_TOP -> g.fillRect(x, y + cellSize - stripe, cellSize, stripe)
-            EdgePrototype.VERTICAL_BRIGHT_RIGHT -> g.fillRect(x, y, stripe, cellSize)
-            EdgePrototype.VERTICAL_BRIGHT_LEFT -> g.fillRect(x + cellSize - stripe, y, stripe, cellSize)
-            EdgePrototype.DIAGONAL_BRIGHT_TOP_LEFT -> fillCornerTriangle(g, x, y, Corner.SE)
-            EdgePrototype.DIAGONAL_BRIGHT_TOP_RIGHT -> fillCornerTriangle(g, x, y, Corner.SW)
-            EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_LEFT -> fillCornerTriangle(g, x, y, Corner.NE)
-            EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_RIGHT -> fillCornerTriangle(g, x, y, Corner.NW)
-
-            // Линии: яркая толстая полоса через центр клетки.
             EdgePrototype.LINE_HORIZONTAL -> g.fillRect(x, y + (cellSize - stripe) / 2, cellSize, stripe)
             EdgePrototype.LINE_VERTICAL -> g.fillRect(x + (cellSize - stripe) / 2, y, stripe, cellSize)
             EdgePrototype.LINE_DIAGONAL_TLBR -> drawThickDiagonal(g, x, y, fromTopLeft = true, stripe = stripe)
             EdgePrototype.LINE_DIAGONAL_TRBL -> drawThickDiagonal(g, x, y, fromTopLeft = false, stripe = stripe)
-
-            EdgePrototype.EMPTY_BLACK,
-            EdgePrototype.EMPTY_WHITE -> Unit
+            else -> for (direction in directionsFor(edgeType)) {
+                drawDirectionMarker(g, x, y, direction, stripe)
+            }
         }
     }
 
-    private enum class Corner { NE, SE, SW, NW }
+    // Сопоставление прототипа → направления, куда смотрят маркеры.
+    // Для одиночных границ — одно направление, для ступенчатых — два соседних.
+    // Пустые и линейные прототипы не используют маркеры (у них собственная отрисовка).
+    private fun directionsFor(edgeType: EdgePrototype): List<Direction> = when (edgeType) {
+        EdgePrototype.HORIZONTAL_DARK_TOP -> listOf(Direction.S)
+        EdgePrototype.HORIZONTAL_DARK_BOTTOM -> listOf(Direction.N)
+        EdgePrototype.VERTICAL_DARK_LEFT -> listOf(Direction.E)
+        EdgePrototype.VERTICAL_DARK_RIGHT -> listOf(Direction.W)
+        EdgePrototype.DIAGONAL_DARK_TOP_LEFT -> listOf(Direction.SE)
+        EdgePrototype.DIAGONAL_DARK_TOP_RIGHT -> listOf(Direction.SW)
+        EdgePrototype.DIAGONAL_DARK_BOTTOM_LEFT -> listOf(Direction.NE)
+        EdgePrototype.DIAGONAL_DARK_BOTTOM_RIGHT -> listOf(Direction.NW)
+
+        EdgePrototype.HORIZONTAL_BRIGHT_BOTTOM -> listOf(Direction.N)
+        EdgePrototype.HORIZONTAL_BRIGHT_TOP -> listOf(Direction.S)
+        EdgePrototype.VERTICAL_BRIGHT_RIGHT -> listOf(Direction.W)
+        EdgePrototype.VERTICAL_BRIGHT_LEFT -> listOf(Direction.E)
+        EdgePrototype.DIAGONAL_BRIGHT_TOP_LEFT -> listOf(Direction.SE)
+        EdgePrototype.DIAGONAL_BRIGHT_TOP_RIGHT -> listOf(Direction.SW)
+        EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_LEFT -> listOf(Direction.NE)
+        EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_RIGHT -> listOf(Direction.NW)
+
+        EdgePrototype.STEP_BRIGHT_NNE -> listOf(Direction.N, Direction.NE)
+        EdgePrototype.STEP_BRIGHT_ENE -> listOf(Direction.NE, Direction.E)
+        EdgePrototype.STEP_BRIGHT_ESE -> listOf(Direction.E, Direction.SE)
+        EdgePrototype.STEP_BRIGHT_SSE -> listOf(Direction.SE, Direction.S)
+        EdgePrototype.STEP_BRIGHT_SSW -> listOf(Direction.S, Direction.SW)
+        EdgePrototype.STEP_BRIGHT_WSW -> listOf(Direction.SW, Direction.W)
+        EdgePrototype.STEP_BRIGHT_WNW -> listOf(Direction.W, Direction.NW)
+        EdgePrototype.STEP_BRIGHT_NNW -> listOf(Direction.NW, Direction.N)
+
+        EdgePrototype.STEP_DARK_NNE -> listOf(Direction.N, Direction.NE)
+        EdgePrototype.STEP_DARK_ENE -> listOf(Direction.NE, Direction.E)
+        EdgePrototype.STEP_DARK_ESE -> listOf(Direction.E, Direction.SE)
+        EdgePrototype.STEP_DARK_SSE -> listOf(Direction.SE, Direction.S)
+        EdgePrototype.STEP_DARK_SSW -> listOf(Direction.S, Direction.SW)
+        EdgePrototype.STEP_DARK_WSW -> listOf(Direction.SW, Direction.W)
+        EdgePrototype.STEP_DARK_WNW -> listOf(Direction.W, Direction.NW)
+        EdgePrototype.STEP_DARK_NNW -> listOf(Direction.NW, Direction.N)
+
+        EdgePrototype.LINE_HORIZONTAL,
+        EdgePrototype.LINE_VERTICAL,
+        EdgePrototype.LINE_DIAGONAL_TLBR,
+        EdgePrototype.LINE_DIAGONAL_TRBL,
+        EdgePrototype.EMPTY_BLACK,
+        EdgePrototype.EMPTY_WHITE -> emptyList()
+    }
+
+    private fun drawDirectionMarker(g: Graphics2D, x: Int, y: Int, direction: Direction, stripe: Int) {
+        when (direction) {
+            Direction.N -> g.fillRect(x, y, cellSize, stripe)
+            Direction.S -> g.fillRect(x, y + cellSize - stripe, cellSize, stripe)
+            Direction.W -> g.fillRect(x, y, stripe, cellSize)
+            Direction.E -> g.fillRect(x + cellSize - stripe, y, stripe, cellSize)
+            Direction.NE -> fillCornerTriangle(g, x, y, Corner.NE)
+            Direction.SE -> fillCornerTriangle(g, x, y, Corner.SE)
+            Direction.SW -> fillCornerTriangle(g, x, y, Corner.SW)
+            Direction.NW -> fillCornerTriangle(g, x, y, Corner.NW)
+        }
+    }
 
     private fun fillCornerTriangle(g: Graphics2D, x: Int, y: Int, corner: Corner) {
-        // Треугольник занимает примерно треть клетки, упирается вершиной в центр.
         val size = (cellSize * 0.6).toInt()
         val poly = when (corner) {
             Corner.NE -> Polygon(

@@ -124,6 +124,124 @@ enum class EdgePrototype(
         ),
     ),
 
+    // --- Ступеньки: ребро под углом «между» двух опорных направлений.
+    //      Активируют сразу два СОСЕДНИХ направленных детектора.
+    //      Имя STEP_<полярность>_<пара направлений>, например WNW = W + NW. ---
+
+    STEP_BRIGHT_NNE(
+        data = arrayOf(
+            intArrayOf(-1, -1, -1),
+            intArrayOf(1, 1, -1),
+            intArrayOf(1, 1, 1),
+        ),
+    ),
+    STEP_BRIGHT_ENE(
+        data = arrayOf(
+            intArrayOf(1, -1, -1),
+            intArrayOf(1, 1, -1),
+            intArrayOf(1, 1, -1),
+        ),
+    ),
+    STEP_BRIGHT_ESE(
+        data = arrayOf(
+            intArrayOf(1, 1, -1),
+            intArrayOf(1, 1, -1),
+            intArrayOf(1, -1, -1),
+        ),
+    ),
+    STEP_BRIGHT_SSE(
+        data = arrayOf(
+            intArrayOf(1, 1, 1),
+            intArrayOf(1, 1, -1),
+            intArrayOf(-1, -1, -1),
+        ),
+    ),
+    STEP_BRIGHT_SSW(
+        data = arrayOf(
+            intArrayOf(1, 1, 1),
+            intArrayOf(-1, 1, 1),
+            intArrayOf(-1, -1, -1),
+        ),
+    ),
+    STEP_BRIGHT_WSW(
+        data = arrayOf(
+            intArrayOf(-1, 1, 1),
+            intArrayOf(-1, 1, 1),
+            intArrayOf(-1, -1, 1),
+        ),
+    ),
+    STEP_BRIGHT_WNW(
+        data = arrayOf(
+            intArrayOf(-1, -1, 1),
+            intArrayOf(-1, 1, 1),
+            intArrayOf(-1, 1, 1),
+        ),
+    ),
+    STEP_BRIGHT_NNW(
+        data = arrayOf(
+            intArrayOf(-1, -1, -1),
+            intArrayOf(-1, 1, 1),
+            intArrayOf(1, 1, 1),
+        ),
+    ),
+
+    STEP_DARK_NNE(
+        data = arrayOf(
+            intArrayOf(1, 1, 1),
+            intArrayOf(-1, -1, 1),
+            intArrayOf(-1, -1, -1),
+        ),
+    ),
+    STEP_DARK_ENE(
+        data = arrayOf(
+            intArrayOf(-1, 1, 1),
+            intArrayOf(-1, -1, 1),
+            intArrayOf(-1, -1, 1),
+        ),
+    ),
+    STEP_DARK_ESE(
+        data = arrayOf(
+            intArrayOf(-1, -1, 1),
+            intArrayOf(-1, -1, 1),
+            intArrayOf(-1, 1, 1),
+        ),
+    ),
+    STEP_DARK_SSE(
+        data = arrayOf(
+            intArrayOf(-1, -1, -1),
+            intArrayOf(-1, -1, 1),
+            intArrayOf(1, 1, 1),
+        ),
+    ),
+    STEP_DARK_SSW(
+        data = arrayOf(
+            intArrayOf(-1, -1, -1),
+            intArrayOf(1, -1, -1),
+            intArrayOf(1, 1, 1),
+        ),
+    ),
+    STEP_DARK_WSW(
+        data = arrayOf(
+            intArrayOf(1, -1, -1),
+            intArrayOf(1, -1, -1),
+            intArrayOf(1, 1, -1),
+        ),
+    ),
+    STEP_DARK_WNW(
+        data = arrayOf(
+            intArrayOf(1, 1, -1),
+            intArrayOf(1, -1, -1),
+            intArrayOf(1, -1, -1),
+        ),
+    ),
+    STEP_DARK_NNW(
+        data = arrayOf(
+            intArrayOf(1, 1, 1),
+            intArrayOf(1, -1, -1),
+            intArrayOf(-1, -1, -1),
+        ),
+    ),
+
     // --- Линии (яркая полоса через яркий центр, тьма по обеим сторонам) ---
 
     LINE_HORIZONTAL(
