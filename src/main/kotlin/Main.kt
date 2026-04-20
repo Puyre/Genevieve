@@ -6,7 +6,7 @@ import org.example.perception.visual.domain.EncodedImageVisualizer
 import org.example.perception.visual.domain.ImageEncoder
 
 fun main() {
-    val image = ImageLoader.loadImageFromPng("src/main/resources/mnist/993.png")
+    val image = ImageLoader.loadImageFromPng("src/main/resources/synthetic/00_canonical.png")
 
     val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 5.0, stride = 1)
     val config = encoder.initialize()

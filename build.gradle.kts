@@ -24,3 +24,10 @@ kotlin {
 tasks.test {
     useJUnitPlatform()
 }
+
+tasks.register<JavaExec>("generateSynthetic") {
+    group = "application"
+    description = "Рисует эталон цифры '1' и набор её вариаций в src/main/resources/synthetic/"
+    mainClass.set("org.example.synthetic.SyntheticDigitGeneratorKt")
+    classpath = sourceSets["main"].runtimeClasspath
+}
