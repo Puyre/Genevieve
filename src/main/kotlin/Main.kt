@@ -1,45 +1,63 @@
 package org.example
 
-import org.example.cognition.EncodedSample
-import org.example.cognition.RecognitionTrainer
-import org.example.cognition.TrainingConfig
-import org.example.cognition.toBitSet
 import org.example.perception.visual.data.ImageLoader
+import org.example.perception.visual.domain.EncodedImageVisualizer
 import org.example.perception.visual.domain.ImageEncoder
+import org.example.perception.visual.domain.entity.ImageEncoderConfig
 import java.io.File
 
 fun main() {
-    val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 5.0, stride = 1)
-    encoder.initialize()
-
-    val syntheticDir = File("src/main/resources/synthetic")
-    val pngs = syntheticDir
-        .listFiles { file -> file.extension == "png" }
-        ?.sortedBy { it.name }
-        ?: emptyList()
-    require(pngs.isNotEmpty()) { "Нет PNG в ${syntheticDir.absolutePath}" }
-
-    val canonicalFile = pngs.firstOrNull { it.nameWithoutExtension.contains("canonical") }
-        ?: error("Не найдена каноническая картинка (имя файла должно содержать 'canonical')")
-
-    var sharedVectorSize = -1
-    fun encode(file: File): EncodedSample {
-        val vector = encoder.encode(ImageLoader.loadImageFromPng(file.path))
-        if (sharedVectorSize < 0) sharedVectorSize = vector.size
-        require(vector.size == sharedVectorSize) {
-            "Разные размеры векторов: ${file.name} дал ${vector.size}, ожидалось $sharedVectorSize"
-        }
-        val code = vector.toBitSet()
-        return EncodedSample(file.nameWithoutExtension, code, code.cardinality())
+    val configPath = "image_encoder_config.json"
+    val encoder = if (File(configPath).exists()) {
+        ImageEncoder.load(configPath = configPath)
+    } else {
+        ImageEncoder.initialize(
+            imageWidth = 28,
+            imageHeight = 28,
+            radius = 2,
+            stride = 1,
+            detectorsPerCell = 16,
+            threshold = 0.5,
+            configPath = configPath,
+        )
     }
 
-    val canonical = encode(canonicalFile)
-    val training = pngs.filter { it != canonicalFile }.map(::encode)
+    val imagePath = "src/main/resources/synthetic/00_canonical.png"
+    val image = ImageLoader.loadImageFromPng(imagePath)
+    val code = encoder.encode(image)
 
-    RecognitionTrainer(
-        config = TrainingConfig(),
-        vectorSize = sharedVectorSize,
-        canonical = canonical,
-        training = training,
-    ).train()
+    printCodeAsMatrix(code, encoder.config)
+
+    EncodedImageVisualizer(encoder.config).showWindow(image, code, title = imagePath)
+}
+
+/**
+ * Печатает бинарный вектор построчно: один ряд на одну «y-строку» сетки
+ * детекторов, внутри ряда чанки по [detectorsPerCell] бит на каждую
+ * x-позицию. Активный бит — `#`, неактивный — `.`.
+ */
+private fun printCodeAsMatrix(code: IntArray, config: ImageEncoderConfig) {
+    val xPositions = ((config.imageWidth - 1 - config.radius) - config.radius) / config.stride + 1
+    val yPositions = ((config.imageHeight - 1 - config.radius) - config.radius) / config.stride + 1
+    val detectorsPerCell = config.detectorsPerCell
+    val activeBits = code.count { it == 1 }
+
+    println("Вектор: длина ${code.size}, активных битов $activeBits (${"%.1f".format(100.0 * activeBits / code.size)}%).")
+    println("Сетка: $yPositions строк × $xPositions позиций × $detectorsPerCell детекторов.")
+    println()
+
+    var offset = 0
+    for (row in 0 until yPositions) {
+        val cy = config.radius + row * config.stride
+        val sb = StringBuilder()
+        sb.append("cy=%2d | ".format(cy))
+        for (col in 0 until xPositions) {
+            for (d in 0 until detectorsPerCell) {
+                sb.append(if (code[offset + d] == 1) '#' else '.')
+            }
+            sb.append(' ')
+            offset += detectorsPerCell
+        }
+        println(sb)
+    }
 }

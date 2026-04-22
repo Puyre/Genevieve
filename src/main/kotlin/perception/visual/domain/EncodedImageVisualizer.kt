@@ -1,208 +1,124 @@
 package org.example.perception.visual.domain
 
-import org.example.perception.visual.domain.entity.EdgePrototype
+import org.example.perception.visual.data.RawImage
 import org.example.perception.visual.domain.entity.ImageEncoderConfig
 import java.awt.BasicStroke
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.Graphics2D
-import java.awt.Polygon
+import java.awt.RenderingHints
 import javax.swing.JFrame
 import javax.swing.JPanel
+import javax.swing.SwingUtilities
 import javax.swing.WindowConstants
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 
+/**
+ * Рисует активных детекторов поверх приглушённой подложки исходной картинки.
+ *
+ * Для каждой позиции сетки, в которой сработал хоть один детектор, показывает
+ * один полукруг: его плоская граница (диаметр) перпендикулярна усреднённому
+ * направлению θ сработавших в этой точке детекторов, а закрашенная половина
+ * смотрит в это направление — то есть в ту сторону, где детекторы «видят»
+ * яркую часть границы. Цвет полукруга кодирует угол θ.
+ */
 class EncodedImageVisualizer(
-    private val encoderConfig: ImageEncoderConfig,
-    private val cellSize: Int = 20,
+    private val config: ImageEncoderConfig,
+    private val scale: Int = 22,
+    private val margin: Int = 12,
 ) {
 
-    private enum class Direction { N, NE, E, SE, S, SW, W, NW }
+    fun showWindow(image: RawImage, code: IntArray, title: String = "Encoded image") {
+        require(code.size == config.detectors.size) {
+            "Вектор длины ${code.size} не соответствует сетчатке из ${config.detectors.size} детекторов"
+        }
 
-    private enum class Corner { NE, SE, SW, NW }
-
-    fun visualizeGraphically(encodedVector: IntArray, imageWidth: Int, imageHeight: Int) {
-        val gridWidth = (imageWidth - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
-        val gridHeight = (imageHeight - 2 * encoderConfig.maskRadius + encoderConfig.stride - 1) / encoderConfig.stride
-
-        val windowWidth = gridWidth * cellSize
-        val windowHeight = gridHeight * cellSize
-
-        javax.swing.SwingUtilities.invokeLater {
-            val frame = JFrame("Encoded Image Visualization")
+        SwingUtilities.invokeLater {
+            val frame = JFrame(title)
             frame.defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
 
             val panel = object : JPanel() {
                 override fun paintComponent(g: Graphics) {
                     super.paintComponent(g)
-                    var offset = 0
-
-                    for (y in 0 until gridHeight) {
-                        for (x in 0 until gridWidth) {
-                            val clusterCode =
-                                encodedVector.sliceArray(offset until offset + encoderConfig.clusterCodeDimension)
-                                    .joinToString("")
-                            offset += encoderConfig.clusterCodeDimension
-
-                            val edgeType = encoderConfig.codeToEdgeType[clusterCode]
-
-                            drawCell(g as Graphics2D, x * cellSize, y * cellSize, edgeType)
-                        }
-                    }
+                    paint(g as Graphics2D, image, code)
                 }
             }
-
-            panel.preferredSize = Dimension(windowWidth, windowHeight)
+            panel.preferredSize = Dimension(
+                config.imageWidth * scale + margin * 2,
+                config.imageHeight * scale + margin * 2,
+            )
             frame.contentPane.add(panel)
             frame.pack()
+            frame.setLocationRelativeTo(null)
             frame.isVisible = true
         }
     }
 
-    // Принцип отрисовки:
-    //  • dark-center прототип   → чёрный фон + светлые маркеры со стороны ярких областей;
-    //  • bright-center прототип → белый фон + тёмные маркеры со стороны тёмных областей;
-    //  • STEP_*                  → два маркера на двух соседних сторонах (удвоенное угловое разрешение);
-    //  • линия                    → чёрный фон + яркая толстая линия через центр;
-    //  • пустой тёмный/яркий      → сплошной цвет;
-    //  • неизвестный код          → серый квадрат.
-    private fun drawCell(g: Graphics2D, x: Int, y: Int, edgeType: EdgePrototype?) {
-        if (edgeType == null) {
-            g.color = Color.GRAY
-            g.fillRect(x, y, cellSize, cellSize)
-            return
-        }
+    private fun paint(g: Graphics2D, image: RawImage, code: IntArray) {
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
 
-        if (edgeType == EdgePrototype.EMPTY_BLACK) {
-            g.color = Color.BLACK
-            g.fillRect(x, y, cellSize, cellSize)
-            return
-        }
+        g.color = Color.BLACK
+        g.fillRect(0, 0, config.imageWidth * scale + margin * 2, config.imageHeight * scale + margin * 2)
 
-        if (edgeType == EdgePrototype.EMPTY_WHITE) {
-            g.color = Color.WHITE
-            g.fillRect(x, y, cellSize, cellSize)
-            return
-        }
-
-        val centerIsBright = edgeType.data[1][1] > 0
-        val bgColor = if (centerIsBright) Color.WHITE else Color.BLACK
-        val fgColor = if (centerIsBright) Color.BLACK else Color.WHITE
-
-        g.color = bgColor
-        g.fillRect(x, y, cellSize, cellSize)
-
-        val stripe = maxOf(2, cellSize / 5)
-
-        g.color = fgColor
-
-        when (edgeType) {
-            EdgePrototype.LINE_HORIZONTAL -> g.fillRect(x, y + (cellSize - stripe) / 2, cellSize, stripe)
-            EdgePrototype.LINE_VERTICAL -> g.fillRect(x + (cellSize - stripe) / 2, y, stripe, cellSize)
-            EdgePrototype.LINE_DIAGONAL_TLBR -> drawThickDiagonal(g, x, y, fromTopLeft = true, stripe = stripe)
-            EdgePrototype.LINE_DIAGONAL_TRBL -> drawThickDiagonal(g, x, y, fromTopLeft = false, stripe = stripe)
-            else -> for (direction in directionsFor(edgeType)) {
-                drawDirectionMarker(g, x, y, direction, stripe)
+        // Приглушённая подложка — само изображение. Нужна, чтобы глазом было
+        // видно, в какой части картинки активные детекторы.
+        for (y in 0 until config.imageHeight) {
+            for (x in 0 until config.imageWidth) {
+                val raw = image.getPixel(x, y) // [-1, +1]
+                val v = ((raw + 1.0) * 0.5 * 90.0).toInt().coerceIn(0, 255)
+                g.color = Color(v, v, v)
+                g.fillRect(margin + x * scale, margin + y * scale, scale, scale)
             }
         }
-    }
 
-    // Сопоставление прототипа → направления, куда смотрят маркеры.
-    // Для одиночных границ — одно направление, для ступенчатых — два соседних.
-    // Пустые и линейные прототипы не используют маркеры (у них собственная отрисовка).
-    private fun directionsFor(edgeType: EdgePrototype): List<Direction> = when (edgeType) {
-        EdgePrototype.HORIZONTAL_DARK_TOP -> listOf(Direction.S)
-        EdgePrototype.HORIZONTAL_DARK_BOTTOM -> listOf(Direction.N)
-        EdgePrototype.VERTICAL_DARK_LEFT -> listOf(Direction.E)
-        EdgePrototype.VERTICAL_DARK_RIGHT -> listOf(Direction.W)
-        EdgePrototype.DIAGONAL_DARK_TOP_LEFT -> listOf(Direction.SE)
-        EdgePrototype.DIAGONAL_DARK_TOP_RIGHT -> listOf(Direction.SW)
-        EdgePrototype.DIAGONAL_DARK_BOTTOM_LEFT -> listOf(Direction.NE)
-        EdgePrototype.DIAGONAL_DARK_BOTTOM_RIGHT -> listOf(Direction.NW)
+        // Собираем активных детекторов по позициям сетки и считаем для каждой
+        // точки круговую среднюю θ (через сумму единичных векторов).
+        val sumX = HashMap<Long, Double>()
+        val sumY = HashMap<Long, Double>()
+        val count = HashMap<Long, Int>()
 
-        EdgePrototype.HORIZONTAL_BRIGHT_BOTTOM -> listOf(Direction.N)
-        EdgePrototype.HORIZONTAL_BRIGHT_TOP -> listOf(Direction.S)
-        EdgePrototype.VERTICAL_BRIGHT_RIGHT -> listOf(Direction.W)
-        EdgePrototype.VERTICAL_BRIGHT_LEFT -> listOf(Direction.E)
-        EdgePrototype.DIAGONAL_BRIGHT_TOP_LEFT -> listOf(Direction.SE)
-        EdgePrototype.DIAGONAL_BRIGHT_TOP_RIGHT -> listOf(Direction.SW)
-        EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_LEFT -> listOf(Direction.NE)
-        EdgePrototype.DIAGONAL_BRIGHT_BOTTOM_RIGHT -> listOf(Direction.NW)
-
-        EdgePrototype.STEP_BRIGHT_NNE -> listOf(Direction.N, Direction.NE)
-        EdgePrototype.STEP_BRIGHT_ENE -> listOf(Direction.NE, Direction.E)
-        EdgePrototype.STEP_BRIGHT_ESE -> listOf(Direction.E, Direction.SE)
-        EdgePrototype.STEP_BRIGHT_SSE -> listOf(Direction.SE, Direction.S)
-        EdgePrototype.STEP_BRIGHT_SSW -> listOf(Direction.S, Direction.SW)
-        EdgePrototype.STEP_BRIGHT_WSW -> listOf(Direction.SW, Direction.W)
-        EdgePrototype.STEP_BRIGHT_WNW -> listOf(Direction.W, Direction.NW)
-        EdgePrototype.STEP_BRIGHT_NNW -> listOf(Direction.NW, Direction.N)
-
-        EdgePrototype.STEP_DARK_NNE -> listOf(Direction.N, Direction.NE)
-        EdgePrototype.STEP_DARK_ENE -> listOf(Direction.NE, Direction.E)
-        EdgePrototype.STEP_DARK_ESE -> listOf(Direction.E, Direction.SE)
-        EdgePrototype.STEP_DARK_SSE -> listOf(Direction.SE, Direction.S)
-        EdgePrototype.STEP_DARK_SSW -> listOf(Direction.S, Direction.SW)
-        EdgePrototype.STEP_DARK_WSW -> listOf(Direction.SW, Direction.W)
-        EdgePrototype.STEP_DARK_WNW -> listOf(Direction.W, Direction.NW)
-        EdgePrototype.STEP_DARK_NNW -> listOf(Direction.NW, Direction.N)
-
-        EdgePrototype.LINE_HORIZONTAL,
-        EdgePrototype.LINE_VERTICAL,
-        EdgePrototype.LINE_DIAGONAL_TLBR,
-        EdgePrototype.LINE_DIAGONAL_TRBL,
-        EdgePrototype.EMPTY_BLACK,
-        EdgePrototype.EMPTY_WHITE -> emptyList()
-    }
-
-    private fun drawDirectionMarker(g: Graphics2D, x: Int, y: Int, direction: Direction, stripe: Int) {
-        when (direction) {
-            Direction.N -> g.fillRect(x, y, cellSize, stripe)
-            Direction.S -> g.fillRect(x, y + cellSize - stripe, cellSize, stripe)
-            Direction.W -> g.fillRect(x, y, stripe, cellSize)
-            Direction.E -> g.fillRect(x + cellSize - stripe, y, stripe, cellSize)
-            Direction.NE -> fillCornerTriangle(g, x, y, Corner.NE)
-            Direction.SE -> fillCornerTriangle(g, x, y, Corner.SE)
-            Direction.SW -> fillCornerTriangle(g, x, y, Corner.SW)
-            Direction.NW -> fillCornerTriangle(g, x, y, Corner.NW)
+        for (index in code.indices) {
+            if (code[index] == 0) continue
+            val spec = config.detectors[index]
+            val key = (spec.cx.toLong() shl 32) or (spec.cy.toLong() and 0xFFFFFFFFL)
+            sumX[key] = (sumX[key] ?: 0.0) + cos(spec.theta)
+            sumY[key] = (sumY[key] ?: 0.0) + sin(spec.theta)
+            count[key] = (count[key] ?: 0) + 1
         }
-    }
 
-    private fun fillCornerTriangle(g: Graphics2D, x: Int, y: Int, corner: Corner) {
-        val size = (cellSize * 0.6).toInt()
-        val poly = when (corner) {
-            Corner.NE -> Polygon(
-                intArrayOf(x + cellSize, x + cellSize, x + cellSize - size),
-                intArrayOf(y, y + size, y),
-                3,
-            )
-            Corner.SE -> Polygon(
-                intArrayOf(x + cellSize, x + cellSize, x + cellSize - size),
-                intArrayOf(y + cellSize, y + cellSize - size, y + cellSize),
-                3,
-            )
-            Corner.SW -> Polygon(
-                intArrayOf(x, x, x + size),
-                intArrayOf(y + cellSize, y + cellSize - size, y + cellSize),
-                3,
-            )
-            Corner.NW -> Polygon(
-                intArrayOf(x, x, x + size),
-                intArrayOf(y, y + size, y),
-                3,
-            )
-        }
-        g.fillPolygon(poly)
-    }
+        val arcRadius = scale / 2 - 1
+        g.stroke = BasicStroke(1.0f)
+        for (key in count.keys) {
+            val cx = (key shr 32).toInt()
+            val cy = (key and 0xFFFFFFFFL).toInt()
+            val meanTheta = atan2(sumY.getValue(key), sumX.getValue(key))
 
-    private fun drawThickDiagonal(g: Graphics2D, x: Int, y: Int, fromTopLeft: Boolean, stripe: Int) {
-        val originalStroke = g.stroke
-        g.stroke = BasicStroke(stripe.toFloat(), BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER)
-        if (fromTopLeft) {
-            g.drawLine(x, y, x + cellSize, y + cellSize)
-        } else {
-            g.drawLine(x + cellSize, y, x, y + cellSize)
+            val centerPx = margin + cx * scale + scale / 2
+            val centerPy = margin + cy * scale + scale / 2
+            val boxX = centerPx - arcRadius
+            val boxY = centerPy - arcRadius
+            val boxSize = arcRadius * 2
+
+            // Наш θ измеряется в радианах от +x к +y (y вниз по экрану).
+            // AWT fillArc считает угол от +x к −y (CCW в обычном смысле).
+            // Поэтому awt_deg = −θ_rad. Полукруг идёт от θ−90° до θ+90°,
+            // то есть startAngle = awt_deg − 90°, arcAngle = 180°.
+            val awtDeg = -meanTheta * 180.0 / PI
+            val startAngle = (awtDeg - 90.0).roundToInt()
+
+            val hue = (((meanTheta / (2.0 * PI)) + 1.0) % 1.0).toFloat()
+            val fillColor = Color.getHSBColor(hue, 0.85f, 1.0f)
+
+            g.color = fillColor
+            g.fillArc(boxX, boxY, boxSize, boxSize, startAngle, 180)
+
+            g.color = Color(255, 255, 255, 120)
+            g.drawOval(boxX, boxY, boxSize, boxSize)
         }
-        g.stroke = originalStroke
     }
 }
