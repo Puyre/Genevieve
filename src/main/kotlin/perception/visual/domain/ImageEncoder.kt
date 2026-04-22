@@ -68,8 +68,11 @@ class ImageEncoder private constructor(
         ): ImageEncoder {
             val angularStep = 2.0 * PI / detectorsPerCell
             val specs = buildList {
-                for (cy in radius..imageHeight - 1 - radius step stride) {
-                    for (cx in radius..imageWidth - 1 - radius step stride) {
+                // Ставим детекторы во все пиксели, включая крайние. Там, где
+                // окошко выходит за границу картинки, Detector сам подставит
+                // фоновое значение (см. Detector.respond).
+                for (cy in 0..imageHeight - 1 step stride) {
+                    for (cx in 0..imageWidth - 1 step stride) {
                         // В каждой точке сетки выбираем случайный сдвиг в диапазоне
                         // одного углового шага и от него ставим детекторы с равным
                         // шагом 2π/detectorsPerCell. Внутри точки все 16 направлений

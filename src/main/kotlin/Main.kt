@@ -22,7 +22,7 @@ fun main() {
         )
     }
 
-    val imagePath = "src/main/resources/synthetic/00_canonical.png"
+    val imagePath = "src/main/resources/mnist/982.png"
     val image = ImageLoader.loadImageFromPng(imagePath)
     val code = encoder.encode(image)
 
@@ -37,8 +37,8 @@ fun main() {
  * x-позицию. Активный бит — `#`, неактивный — `.`.
  */
 private fun printCodeAsMatrix(code: IntArray, config: ImageEncoderConfig) {
-    val xPositions = ((config.imageWidth - 1 - config.radius) - config.radius) / config.stride + 1
-    val yPositions = ((config.imageHeight - 1 - config.radius) - config.radius) / config.stride + 1
+    val xPositions = (config.imageWidth - 1) / config.stride + 1
+    val yPositions = (config.imageHeight - 1) / config.stride + 1
     val detectorsPerCell = config.detectorsPerCell
     val activeBits = code.count { it == 1 }
 
@@ -48,7 +48,7 @@ private fun printCodeAsMatrix(code: IntArray, config: ImageEncoderConfig) {
 
     var offset = 0
     for (row in 0 until yPositions) {
-        val cy = config.radius + row * config.stride
+        val cy = row * config.stride
         val sb = StringBuilder()
         sb.append("cy=%2d | ".format(cy))
         for (col in 0 until xPositions) {

@@ -45,6 +45,10 @@ class Detector(
     /**
      * Применяет маску к пятну пикселей вокруг ([cx], [cy]), складывает и
      * сравнивает с [threshold]. Возвращает 1, если сумма больше порога; 0 иначе.
+     *
+     * Если центр детектора стоит у края картинки, часть его окошка выходит
+     * за границы. Такие позиции считаются чёрным фоном ([BACKGROUND_PIXEL] =
+     * −1.0), чтобы детектор у края видел то же, что и в глубине чёрной области.
      */
     fun respond(image: RawImage): Int {
         var sum = 0.0
@@ -54,7 +58,12 @@ class Detector(
                 if (weight == 0) continue
                 val px = cx + (mx - radius)
                 val py = cy + (my - radius)
-                sum += weight * image.getPixel(px, py)
+                val pixel = if (px in 0 until image.width && py in 0 until image.height) {
+                    image.getPixel(px, py)
+                } else {
+                    BACKGROUND_PIXEL
+                }
+                sum += weight * pixel
             }
         }
         return if (sum > threshold) 1 else 0
@@ -65,5 +74,9 @@ class Detector(
         // детектора по модулю меньше EPSILON, считаются лежащими на центральной
         // линии маски и получают вес 0.
         private const val EPSILON = 1e-9
+
+        // Значение «фонового» пикселя за пределами картинки. В нашем датасете
+        // все объекты нарисованы на чёрном фоне, а чёрный в [-1, +1] — это −1.
+        private const val BACKGROUND_PIXEL = -1.0
     }
 }
