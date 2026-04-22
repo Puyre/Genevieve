@@ -1,45 +1,45 @@
 package org.example
 
+import org.example.cognition.EncodedSample
+import org.example.cognition.RecognitionTrainer
+import org.example.cognition.TrainingConfig
+import org.example.cognition.toBitSet
 import org.example.perception.visual.data.ImageLoader
-import org.example.perception.visual.data.RawImage
-import org.example.perception.visual.domain.EncodedImageVisualizer
 import org.example.perception.visual.domain.ImageEncoder
+import java.io.File
 
 fun main() {
-    val image = ImageLoader.loadImageFromPng("src/main/resources/synthetic/00_canonical.png")
-
     val encoder = ImageEncoder(maskRadius = 1, detectorActivationThreshold = 5.0, stride = 1)
-    val config = encoder.initialize()
+    encoder.initialize()
 
-    val visualizer = EncodedImageVisualizer(encoderConfig = config)
+    val syntheticDir = File("src/main/resources/synthetic")
+    val pngs = syntheticDir
+        .listFiles { file -> file.extension == "png" }
+        ?.sortedBy { it.name }
+        ?: emptyList()
+    require(pngs.isNotEmpty()) { "Нет PNG в ${syntheticDir.absolutePath}" }
 
-    val encoded = encoder.encode(image)
+    val canonicalFile = pngs.firstOrNull { it.nameWithoutExtension.contains("canonical") }
+        ?: error("Не найдена каноническая картинка (имя файла должно содержать 'canonical')")
 
-    println("Original image size: ${image.width}x${image.height}")
-    println("Encoded vector dimension: ${encoded.size}")
-    println("Encoded vector: ${encoded.joinToString("")}")
-
-    // Диагностика: какие коды кластера остались вне словаря прототипов.
-    // Если список пустой — серых клеток в визуализации не будет.
-    val unknownCodes = mutableMapOf<String, Int>()
-    var offset = 0
-    while (offset + config.clusterCodeDimension <= encoded.size) {
-        val code = encoded.sliceArray(offset until offset + config.clusterCodeDimension).joinToString("")
-        if (code !in config.codeToEdgeType) {
-            unknownCodes[code] = (unknownCodes[code] ?: 0) + 1
+    var sharedVectorSize = -1
+    fun encode(file: File): EncodedSample {
+        val vector = encoder.encode(ImageLoader.loadImageFromPng(file.path))
+        if (sharedVectorSize < 0) sharedVectorSize = vector.size
+        require(vector.size == sharedVectorSize) {
+            "Разные размеры векторов: ${file.name} дал ${vector.size}, ожидалось $sharedVectorSize"
         }
-        offset += config.clusterCodeDimension
-    }
-    if (unknownCodes.isEmpty()) {
-        println("\nAll cluster codes are covered by the prototype dictionary.")
-    } else {
-        val total = unknownCodes.values.sum()
-        println("\nUnknown cluster codes ($total cells across ${unknownCodes.size} unique patterns):")
-        unknownCodes.entries.sortedByDescending { it.value }.forEach { (code, count) ->
-            println("  $code  ×$count")
-        }
+        val code = vector.toBitSet()
+        return EncodedSample(file.nameWithoutExtension, code, code.cardinality())
     }
 
-    println("\nVisualized encoded image:")
-    visualizer.visualizeGraphically(encoded, image.width, image.height)
+    val canonical = encode(canonicalFile)
+    val training = pngs.filter { it != canonicalFile }.map(::encode)
+
+    RecognitionTrainer(
+        config = TrainingConfig(),
+        vectorSize = sharedVectorSize,
+        canonical = canonical,
+        training = training,
+    ).train()
 }

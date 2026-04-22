@@ -1,7 +1,10 @@
 package org.example.cognition
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromStream
+import kotlinx.serialization.json.encodeToStream
 import java.io.File
 import kotlin.random.Random
 
@@ -17,7 +20,6 @@ class ContextPool(
     val vectorSize: Int,
     initialContexts: List<Context> = emptyList(),
 ) {
-
     private val _contexts: MutableList<Context> = initialContexts.toMutableList()
 
     val contexts: List<Context> get() = _contexts
@@ -34,7 +36,11 @@ class ContextPool(
     //   flipRange = 50..500       — сфокусированный диапазон;
     //   flipRange = 100..100      — фиксированная плотность (если нужна для
     //                                воспроизводимости отдельного эксперимента).
-    fun addRandom(count: Int, flipRange: IntRange, random: Random = Random.Default) {
+    fun addRandom(
+        count: Int,
+        flipRange: IntRange,
+        random: Random = Random.Default,
+    ) {
         require(!flipRange.isEmpty()) { "flipRange=$flipRange пуст" }
         require(flipRange.first >= 0 && flipRange.last <= vectorSize) {
             "flipRange=$flipRange выходит за [0, $vectorSize]"
@@ -75,23 +81,37 @@ class ContextPool(
         )
     }
 
+    // Стриминговая запись: кодируем в OutputStream напрямую, не складывая всю JSON
+    // в String в памяти. При пуле в 50k контекстов и средней плотности ~2500 флипов
+    // получается ~750 MB JSON — при writeText'е это OOM. encodeToStream пишет
+    // последовательно с ограниченным буфером.
+    @OptIn(ExperimentalSerializationApi::class)
     fun saveTo(file: File) {
         val snapshot = ContextPoolSnapshot(vectorSize, _contexts.toList())
         file.parentFile?.mkdirs()
-        file.writeText(Json.encodeToString(ContextPoolSnapshot.serializer(), snapshot))
+        file.outputStream().buffered().use { stream ->
+            Json.encodeToStream(ContextPoolSnapshot.serializer(), snapshot, stream)
+        }
     }
 
     companion object {
-
+        @OptIn(ExperimentalSerializationApi::class)
         fun loadFrom(file: File): ContextPool {
-            val snapshot = Json.decodeFromString(ContextPoolSnapshot.serializer(), file.readText())
+            val snapshot =
+                file.inputStream().buffered().use { stream ->
+                    Json.decodeFromStream(ContextPoolSnapshot.serializer(), stream)
+                }
             return ContextPool(snapshot.vectorSize, snapshot.contexts)
         }
 
         // Сэмплирование count уникальных индексов из [0, range). Для наших параметров
         // (count порядка сотен, range ~11k) hash-set работает быстрее, чем
         // полный shuffle массива индексов.
-        private fun sampleUniqueIndices(count: Int, range: Int, random: Random): IntArray {
+        private fun sampleUniqueIndices(
+            count: Int,
+            range: Int,
+            random: Random,
+        ): IntArray {
             val chosen = HashSet<Int>(count * 2)
             while (chosen.size < count) {
                 chosen += random.nextInt(range)

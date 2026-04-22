@@ -12,7 +12,6 @@ import javax.imageio.ImageIO
 // фон чёрный, штрих белый). Нужен для проверки контекстной системы в управляемых
 // условиях: здесь мы точно знаем, чем одна вариация отличается от другой.
 object SyntheticDigitGenerator {
-
     private const val SIZE = 28
     private const val CENTER = (SIZE - 1) / 2.0
 
@@ -44,8 +43,10 @@ object SyntheticDigitGenerator {
             val halfDy = Math.cos(rad) * length / 2
             g.draw(
                 Line2D.Double(
-                    centerX + halfDx, centerY - halfDy,
-                    centerX - halfDx, centerY + halfDy,
+                    centerX + halfDx,
+                    centerY - halfDy,
+                    centerX - halfDx,
+                    centerY + halfDy,
                 ),
             )
         } finally {

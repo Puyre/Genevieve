@@ -22,11 +22,13 @@ class Context(
     var successCount: Int = 0,
     var fixed: Boolean = false,
 ) {
-
     // Записывает XOR(input, mask) в scratch. scratch должен иметь достаточную ёмкость
     // (BitSet сам расширится, но для горячего цикла лучше переиспользовать один буфер
     // нужного размера, чтобы избежать аллокаций).
-    fun applyTo(input: BitSet, scratch: BitSet) {
+    fun applyTo(
+        input: BitSet,
+        scratch: BitSet,
+    ) {
         scratch.clear()
         scratch.or(input)
         for (idx in flipIndices) {
